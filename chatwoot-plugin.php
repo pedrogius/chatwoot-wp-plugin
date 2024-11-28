@@ -32,6 +32,9 @@ function admin_styles() {
  * @return {void}.
  */
 function chatwoot_assets() {
+    if (!chatwoot_should_execute()) {
+      return;
+  }
     wp_enqueue_script( 'chatwoot-client', plugins_url( '/js/chatwoot.js' , __FILE__ ) );
 }
 
@@ -43,8 +46,40 @@ add_action( 'wp_enqueue_scripts', 'chatwoot_load' );
  *
  * @return {void}.
  */
+
+ /**
+ * Determine if the Chatwoot widget should execute on the current page.
+ *
+ * @return bool True if the plugin should execute, false otherwise.
+ */
+function chatwoot_should_execute() {
+  // Get user-defined URLs
+  $allowed_urls = array_filter(array_map('trim', explode("\n", get_option('chatwootAllowedURLs', ''))));
+
+  // Get the current URL path
+  $current_url = $_SERVER['REQUEST_URI'];
+
+  // Check if the current URL starts with any of the allowed URLs
+  foreach ($allowed_urls as $url) {
+      if (substr($url, -1) !== '/') {
+          // Ensure trailing slash for proper subdirectory matching
+          $url .= '/';
+      }
+      if (strpos($current_url, $url) === 0) {
+          return true;
+      }
+  }
+
+  return false;
+}
+
+
+
 function chatwoot_load() {
 
+  if (!chatwoot_should_execute()) {
+    return;
+}
   // Get our site options for site url and token.
   $chatwoot_url = get_option('chatwootSiteURL');
   $chatwoot_token = get_option('chatwootSiteToken');
@@ -89,7 +124,9 @@ function chatwoot_register_settings() {
   add_option('chatwootWidgetType', 'standard');
   add_option('chatwootWidgetPosition', 'right');
   add_option('chatwootLauncherText', '');
+  add_option('chatwootAllowedURLs', '');
 
+  register_setting('chatwoot-plugin-options', 'chatwootAllowedURLs');
   register_setting('chatwoot-plugin-options', 'chatwootSiteToken' );
   register_setting('chatwoot-plugin-options', 'chatwootSiteURL');
   register_setting('chatwoot-plugin-options', 'chatwootWidgetLocale' );
@@ -180,6 +217,14 @@ function chatwoot_options_page() {
           <option <?php selected(get_option('chatwootWidgetLocale'), 'zh'); ?> value="zh'">中文 (zh)</option>
         </select>
       </div>
+      <div class="form--input">
+        <label for="chatwootAllowedURLs">Allowed URLs (one per line)</label>
+        <textarea
+            name="chatwootAllowedURLs"
+            rows="5"
+            cols="50"><?php echo esc_textarea(get_option('chatwootAllowedURLs')); ?></textarea>
+      </div>
+
       <?php if (get_option('chatwootWidgetType') == 'expanded_bubble') : ?>
         <div class="form--input">
           <label for="chatwootLauncherText">Launcher Text (Optional)</label>
